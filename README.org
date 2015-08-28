@@ -1,0 +1,74 @@
+* License
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; see the file COPYING.
+If not, see <http://www.gnu.org/licenses/>.
+
+* Commentary
+
+Bitcoin donations gratefully accepted: 12k9zUo9Dgqk8Rary2cuzyvAQWD5EAuZ4q
+
+This library provides various miscellaneous `dired' related commands & functions
+that I use occasionally. 
+
+
+* Commands
+
+Below is a complete command list:
+
+ - `ido-execute-extended-command' :
+ Use `ido' to select a command to execute.
+ - `ido-bookmark-jump' :
+ Switch to bookmark interactively using `ido'.
+ - `ido-run-associated-program' :
+ Open the current candidate file with `run-associated-program'.
+ - `ido-goto-favourite' :
+ Choose commonly used file/dired buffer with ido, and jump to it.
+ - `ido-goto-recent-file' :
+ Choose recently used file with ido, and jump to it.
+ - `ido-goto-recent-dir' :
+ Choose recently used dired buffer with ido, and jump to it.
+
+
+
+* Functions
+
+The following functions are defined:
+
+ - `ido-sort-mtime' :
+    Sort ido filelist by modification time instead of alphabetically.
+ - `ido-completing-read-multiple' :
+    Read multiple items with `ido-completing-read'.
+
+* Customize
+
+ - `ido-favourites-list' :
+    List of choice-action pairs for use with the `ido-goto-favourite' command.
+
+
+* Installation
+
+Put ido-jb-misc-extras.el in a directory in your load-path, e.g. ~/.emacs.d/
+You can add a directory to your load-path with the following line in ~/.emacs
+(add-to-list 'load-path (expand-file-name "~/elisp"))
+where ~/elisp is the directory you want to add 
+(you don't need to do this for ~/.emacs.d - it's added by default).
+
+Add the following to your ~/.emacs startup file.
+
+(require 'ido-jb-misc-extras)
+
+To ensure files are sorted by modification time when using `ido-find-file',
+put the following line somewhere in your startup file (~/.emacs):
+
+ (add-hook 'ido-make-file-list-hook 'ido-sort-mtime)
