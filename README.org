@@ -21,7 +21,6 @@ Bitcoin donations gratefully accepted: 12k9zUo9Dgqk8Rary2cuzyvAQWD5EAuZ4q
 This library provides various miscellaneous `dired' related commands & functions
 that I use occasionally. 
 
-
 * Commands
 
 Below is a complete command list:
@@ -39,8 +38,6 @@ Below is a complete command list:
  - `ido-goto-recent-dir' :
  Choose recently used dired buffer with ido, and jump to it.
 
-
-
 * Functions
 
 The following functions are defined:
@@ -54,7 +51,6 @@ The following functions are defined:
 
  - `ido-favourites-list' :
     List of choice-action pairs for use with the `ido-goto-favourite' command.
-
 
 * Installation
 
