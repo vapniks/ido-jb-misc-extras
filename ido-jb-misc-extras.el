@@ -220,9 +220,11 @@
 Each line of the file must be a bookmark name followed by a space,
 and then a filepath, e.g:  emacs ~/.emacs.d"
     :type 'file)  
-  (defun ido-cdargs (bkmk)
-    "Choose cdargs bookmark and and jump to it.
-BKMK is the name of the cdargs bookmark to jump to.
+  (defun ido-cdargs (bkmk &optional findfile)
+    "Choose subdir of cdargs bookmark directory.
+BKMK is the name of the cdargs bookmark to use.
+If called with prefix arg, or if FINDFILE is non-nil, then prompt 
+for a file within the bookmarked directory, and open it.
 Location of cdargs config file is stored in `ido-cdargs-config'."
     (interactive
      (list (ido-completing-read
@@ -232,12 +234,21 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 		  (with-temp-buffer
 		    (insert-file-contents ido-cdargs-config)
 		    (extract-text (regex "^\\w+") :REPS 1000 :NOERROR 'skip :FLATTEN 1))
-		(error "Can't read cdargs config file: %s" ido-cdargs-config))))))
-    (ido-file-internal 'dired 'dired
-		       (with-temp-buffer
-			 (insert-file-contents ido-cdargs-config)
-			 (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
-			 (match-string 1)) nil 'dir nil nil)))
+		(error "Can't read cdargs config file: %s" ido-cdargs-config))))
+	   current-prefix-arg))
+    (if findfile
+	(find-file
+	 (ido-read-file-name
+	  "File: "
+	  (with-temp-buffer
+	    (insert-file-contents ido-cdargs-config)
+	    (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
+	    (match-string 1)) nil t))
+      (ido-file-internal 'dired 'dired
+			 (with-temp-buffer
+			   (insert-file-contents ido-cdargs-config)
+			   (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
+			   (match-string 1)) nil 'dir nil nil))))
 
 ;;;###autoload
 (defun ido-completing-read-multiple (prompt choices &optional predicate require-match initial-input hist def sentinel)
