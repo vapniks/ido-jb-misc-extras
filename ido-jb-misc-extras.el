@@ -233,10 +233,11 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 		    (insert-file-contents ido-cdargs-config)
 		    (extract-text (regex "^\\w+") :REPS 1000 :NOERROR 'skip :FLATTEN 1))
 		(error "Can't read cdargs config file: %s" ido-cdargs-config))))))
-    (dired (with-temp-buffer
-	     (insert-file-contents ido-cdargs-config)
-	     (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
-	     (match-string 1)))))
+    (ido-file-internal 'dired 'dired
+		       (with-temp-buffer
+			 (insert-file-contents ido-cdargs-config)
+			 (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
+			 (match-string 1)) nil 'dir nil nil)))
 
 ;;;###autoload
 (defun ido-completing-read-multiple (prompt choices &optional predicate require-match initial-input hist def sentinel)
