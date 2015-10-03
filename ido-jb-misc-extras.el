@@ -248,7 +248,7 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 			 (with-temp-buffer
 			   (insert-file-contents ido-cdargs-config)
 			   (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
-			   (match-string 1)) nil 'dir nil nil))))
+			   (match-string 1)) "Subdirectory: " 'dir nil nil))))
 
 ;;;###autoload
 (defun ido-completing-read-multiple (prompt choices &optional predicate require-match initial-input hist def sentinel)
