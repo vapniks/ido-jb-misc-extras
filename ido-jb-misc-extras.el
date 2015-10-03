@@ -211,6 +211,30 @@
 				items))))
   (dired place))
 
+(unless (not (require 'extract-text nil t))
+  (defcustom ido-cdargs-config "~/.cdargs"
+    "Location of cdargs config file.
+Each line of the file must be a bookmark name followed by a space,
+and then a filepath, e.g:  emacs ~/.emacs.d"
+    :type 'file)  
+  (defun ido-cdargs (bkmk)
+    "Choose cdargs bookmark and and jump to it.
+BKMK is the name of the cdargs bookmark to jump to.
+Location of cdargs config file is stored in `ido-cdargs-config'."
+    (interactive
+     (list (ido-completing-read
+	    "Directory bookmark: "
+	    (let ((items))
+	      (if (file-readable-p ido-cdargs-config)
+		  (with-temp-buffer
+		    (insert-file-contents ido-cdargs-config)
+		    (extract-text (regex "^\\w+") :REPS 1000 :NOERROR 'skip :FLATTEN 1))
+		(error "Can't read cdargs config file: %s" ido-cdargs-config))))))
+    (dired (with-temp-buffer
+	     (insert-file-contents ido-cdargs-config)
+	     (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
+	     (match-string 1)))))
+  
 (defun ido-completing-read-multiple (prompt choices &optional predicate require-match initial-input hist def sentinel)
   "Read multiple items with ido-completing-read. 
    Reading stops when the user enters SENTINEL. By default, SENTINEL is
