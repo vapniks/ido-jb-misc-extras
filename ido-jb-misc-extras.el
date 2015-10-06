@@ -233,7 +233,7 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 	      (if (file-readable-p ido-cdargs-config)
 		  (with-temp-buffer
 		    (insert-file-contents ido-cdargs-config)
-		    (extract-text (regex "^\\w+") :REPS 1000 :NOERROR 'skip :FLATTEN 1))
+		    (extract-text (regex "^\\w+") :REPS 1000 :ERROR 'skip :FLATTEN 1))
 		(error "Can't read cdargs config file: %s" ido-cdargs-config))))
 	   current-prefix-arg))
     (if findfile
