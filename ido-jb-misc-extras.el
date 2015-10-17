@@ -276,6 +276,45 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
     ;; return the result
     res))
 
+;;;###autoload
+(defvar ido-read-function-history nil
+  "A history list of Lisp expressions forf `ido-choose-function'.
+Keeps track of Lisp expressions entered by the user, (but not functions
+selected from the list).")
+
+;;;###autoload
+(defun ido-choose-function (funcs &optional prompt other)
+  "Prompt the user for one of the functions in FUNCS.
+FUNCS should a list of cons cells whose cars are the function names,
+ (either strings or symbols), and whose cdrs are the functions themselves.
+If PROMPT is non-nil use that as the prompt.
+If OTHER is non-nil allow the user to enter a function of their own.
+If OTHER is a string, use that as the prompt when asking the user to
+enter a function of their own."
+  (cl-flet ((asstring (x) (if (symbolp x) (symbol-name x)
+			    (if (stringp x) x
+			      (error "Invalid element: %S" x)))))
+    (let* ((names (mapcar (lambda (x) (asstring (car x))) funcs))
+	   (otherstr (if other
+			 (if (not (member "other" names))
+			     "other"
+			   "user function")))
+	   (otherprompt (if other
+			    (if (stringp other)
+				other
+			      "User function: ")))
+	   (choice (ido-completing-read
+		    (or prompt "Function: ")
+		    (append (if otherstr (list otherstr)) names)
+		    nil nil nil 'ido-functions-history))
+	   (func (if (equal choice otherstr)
+		     (read-from-minibuffer
+		      otherprompt nil nil t 'ido-read-function-history)
+		   (cdr (cl-assoc choice funcs
+				  :test (lambda (a b) (equal (asstring a)
+							     (asstring b))))))))
+      (if (functionp func) func (error "Invalid function: %S" func)))))
+
 (provide 'ido-jb-misc-extras)
 
 ;; (magit-push)
