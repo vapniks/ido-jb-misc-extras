@@ -171,15 +171,10 @@
   :group 'ido)
 
 ;;;###autoload
-(defun ido-goto-favourite (place)
+(defun ido-goto-favourite nil
   "Choose commonly used file/dired buffer with ido, and jump to it."
-  (interactive
-   (list (ido-completing-read "Favourite: "
-			      (let ((items))
-				(dolist (item ido-favourites-list)
-				  (setq items (append (list (car item)) items)))
-				items) nil t)))
-  (funcall (cdr (assoc place ido-favourites-list))))
+  (interactive)
+  (funcall (ido-choose-function ido-favourites-list "Favourite :")))
 
 ;;;###autoload
 (defun ido-goto-recent-file (file)
