@@ -111,13 +111,15 @@
 
 ;;;###autoload
 (defun ido-bookmark-jump (bname)
-  "Switch to bookmark interactively using `ido'."
-  (interactive (list (ido-completing-read "Bookmark: " (bookmark-all-names) nil t)))
+  "Switch to bookmark BNAME interactively using `ido'."
+  (interactive (list (ido-completing-read
+		      "Bookmark: "
+		      (bookmark-all-names) nil t)))
   (bookmark-jump bname))
 
 (defvar ido-execute-command-cache nil)
 ;;;###autoload
-(defun ido-execute-extended-command ()
+(defun ido-execute-extended-command nil
   "Use `ido' to select a command to execute."
   (interactive)
   (call-interactively
@@ -141,8 +143,10 @@
       (progn (setq ido-temp-list
 		   (sort ido-temp-list
 			 (lambda (a b)
-			   (let* ((ta (nth 5 (file-attributes (concat ido-current-directory a))))
-				  (tb (nth 5 (file-attributes (concat ido-current-directory b))))
+			   (let* ((ta (nth 5 (file-attributes
+					      (concat ido-current-directory a))))
+				  (tb (nth 5 (file-attributes
+					      (concat ido-current-directory b))))
 				  (ta0 (nth 0 ta))
 				  (tb0 (nth 0 tb))
 				  (ta1 (nth 1 ta))
@@ -179,7 +183,7 @@
 
 ;;;###autoload
 (defun ido-goto-recent-file (file)
-  "Choose recently used file with ido, and jump to it."
+  "Choose recently used FILE with ido, and jump to it."
   (interactive
    (list (let* ((filepaths (let ((items))
 			     (dolist (item file-name-history)
@@ -200,7 +204,7 @@
 
 ;;;###autoload
 (defun ido-goto-recent-dir (place)
-  "Choose recently used dired buffer with ido, and jump to it."
+  "Choose recently used directory (PLACE) with ido, and jump to it with dired."
   (interactive
    (list (ido-completing-read "Recent dir: "
 			      (let ((items))
@@ -209,7 +213,9 @@
 					   (not (string-match ":" item))
 					   (> (length item) 0))
 				      (let ((itemd (file-name-directory item)))
-					(if (and (stringp itemd) (file-directory-p itemd) (not (member itemd items)))
+					(if (and (stringp itemd)
+						 (file-directory-p itemd)
+						 (not (member itemd items)))
 					    (add-to-list 'items itemd t)))))
 				items))))
   (dired place))
@@ -251,15 +257,17 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 			   (match-string 1)) "Subdirectory: " 'dir nil nil))))
 
 ;;;###autoload
-(defun ido-completing-read-multiple (prompt choices &optional predicate require-match initial-input hist def sentinel)
-  "Read multiple items with ido-completing-read. 
-   Reading stops when the user enters SENTINEL. By default, SENTINEL is
-   \"*done*\". SENTINEL is disambiguated with clashing completions
-   by appending _ to SENTINEL until it becomes unique. So if there
-   are multiple values that look like SENTINEL, the one with the
-   most _ at the end is the actual sentinel value. See
-   documentation for `ido-completing-read' for details on the
-   other parameters."
+(defun ido-completing-read-multiple (prompt choices
+					    &optional predicate require-match
+					    initial-input hist def sentinel)
+  "Read multiple items with ido-completing-read.
+Reading stops when the user enters SENTINEL. By default, SENTINEL is
+\"*done*\". SENTINEL is disambiguated with clashing completions
+by appending _ to SENTINEL until it becomes unique. So if there
+are multiple values that look like SENTINEL, the one with the
+most _ at the end is the actual sentinel value. See
+documentation for `ido-completing-read' for details on the
+other parameters."
   (let ((sentinel (if sentinel sentinel "*done*"))
 	(done-reading nil)
 	(res ()))
@@ -291,7 +299,8 @@ For example, the following call:
 
  (apply-interactive
   (lambda (x y &rest z)
-    (interactive (list (read-number \"Factor: \") '<> '&rest '<>))
+    (interactive (list (read-number \"Factor: \") 
+		       '<> '&rest '<>))
     (* x (apply '+ y z))))
 
 will prompt for a number, x, and return a function that takes any
