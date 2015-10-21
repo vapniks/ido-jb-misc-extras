@@ -277,20 +277,63 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
     res))
 
 ;;;###autoload
+(defun apply-interactive (func)
+  "Call the interactive form of FUNC to (partially) apply arguments.
+Return value is a function that does the same as FUNC, except that
+it's arguments are fixed to the values obtained interactively during
+this function call. If FUNC has no `interactive' form then it is
+returned unchanged.
+Any '<> symbols returned by the `interactive' form in FUNC will be
+used as place holders for arguments of the returned function.
+Also, if the `interactive' form returns a '&rest symbol this will
+be used in the arglist of the returned function.
+For example, the following call:
+
+ (apply-interactive
+  (lambda (x y &rest z)
+    (interactive (list (read-number \"Factor: \") '<> '&rest '<>))
+    (* x (apply '+ y z))))
+
+will prompt for a number, x, and return a function that takes any
+number of arguments, adds them together and multiplies the result
+by x."
+  (let ((interact (interactive-form func)))
+    (if interact
+	(let* ((args (eval `(call-interactively
+			     (lambda (&rest args) ,interact args))))
+	       (args2 (mapcar (lambda (x) (if (eq x '<>) (gensym) x))
+			      (remove-if-not (lambda (y) (memq y '(<> &rest)))
+					     args)))
+	       (args3 (remove '&rest args))
+	       (args4 (remove '&rest args2))
+	       (restp (memq '&rest args2)))
+	  ;; Use `eval' rather than `macroexpand' so that function can be called with `funcall'
+	  (eval `(lambda ,args2
+		   (,@(if restp `(apply ,func) `(,func))
+		    ,@(mapcar
+		       (lambda (x) (if (eq x '<>) (pop args4) x))
+		       args3)))))
+      func)))
+
+;;;###autoload
 (defvar ido-read-function-history nil
   "A history list of Lisp expressions forf `ido-choose-function'.
 Keeps track of Lisp expressions entered by the user, (but not functions
 selected from the list).")
 
 ;;;###autoload
-(defun ido-choose-function (funcs &optional prompt other)
+(defun ido-choose-function (funcs &optional prompt other partial)
   "Prompt the user for one of the functions in FUNCS.
 FUNCS should a list of cons cells whose cars are the function names,
  (either strings or symbols), and whose cdrs are the functions themselves.
 If PROMPT is non-nil use that as the prompt.
 If OTHER is non-nil allow the user to enter a function of their own.
 If OTHER is a string, use that as the prompt when asking the user to
-enter a function of their own."
+enter a function of their own.
+If PARTIAL is non-nil then after the function is selected, if it contains
+an `interactive' form, it will be called to obtain values for the arguments
+which will be partially applied to the function before returning it.
+For more details see `apply-interactive'."
   (cl-flet ((asstring (x) (if (symbolp x) (symbol-name x)
 			    (if (stringp x) x
 			      (error "Invalid element: %S" x)))))
@@ -313,7 +356,9 @@ enter a function of their own."
 		   (cdr (cl-assoc choice funcs
 				  :test (lambda (a b) (equal (asstring a)
 							     (asstring b))))))))
-      (if (functionp func) func (error "Invalid function: %S" func)))))
+      (if (not (functionp func))
+	  (error "Invalid function: %S" func)
+	(apply-interactive func)))))
 
 (provide 'ido-jb-misc-extras)
 
