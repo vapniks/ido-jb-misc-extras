@@ -16,7 +16,7 @@
 ;;
 ;; Features that might be required by this library:
 ;;
-;; run-assoc
+;; run-assoc ido-choose-function
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -101,6 +101,7 @@
 
 ;;; Require
 (eval-when-compile (require 'cl))
+(require 'ido-choose-function)
 
 ;;;###autoload
 (defun ido-run-associated-program nil
@@ -174,7 +175,7 @@
 (defun ido-goto-favourite nil
   "Choose commonly used file/dired buffer with ido, and jump to it."
   (interactive)
-  (funcall (ido-choose-function ido-favourites-list "Favourite :")))
+  (funcall (ido-choose-function ido-favourites-list "Favourite: ")))
 
 ;;;###autoload
 (defun ido-goto-recent-file (file)
