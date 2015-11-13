@@ -280,6 +280,23 @@ other parameters."
     ;; return the result
     res))
 
+;; Redefine `ido-restrict-to-matches' so that application with a prefix arg
+;; will remove matches from the current list.
+(eval-after-load "ido.elc"
+  '(defun ido-restrict-to-matches (&optional arg)
+     "Set current item list to the currently matched items.
+If a prefix ARG is used then remove matched items from list."
+     (interactive "P")
+     (when ido-matches
+       (setq ido-cur-list
+	     (if arg (cl-set-difference
+		      ido-cur-list ido-matches :test 'equal)
+	       ido-matches)
+	     ido-text-init ""
+	     ido-rescan (if arg t)
+	     ido-exit 'keep)
+       (if arg (setq ido-matches ido-cur-list))
+       (exit-minibuffer))))
 
 (provide 'ido-jb-misc-extras)
 
