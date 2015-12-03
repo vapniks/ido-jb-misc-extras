@@ -280,6 +280,21 @@ other parameters."
     ;; return the result
     res))
 
+;;;###autoload
+(defun ido-display-buffer-right (&optional left)
+  "Split the current window horizontally and display a buffer in the other half.
+Buffer name is selected using ido.
+If LEFT is non-nil, or command is called with a prefix arg, then put new buffer
+in the left hand side window instead of the right hand side window."
+  (interactive "P")
+  (let* ((require-match (confirm-nonexistent-file-or-buffer))
+	 (buf (ido-read-internal 'buffer "Buffer: " 'ido-buffer-history nil
+				 require-match nil)))
+    (split-window-right)
+    (unless left (other-window -1))
+    (switch-to-buffer buf nil t)
+    (other-window 1)))
+
 ;; Redefine `ido-restrict-to-matches' so that application with a prefix arg
 ;; will remove matches from the current list.
 (eval-after-load "ido.elc"
