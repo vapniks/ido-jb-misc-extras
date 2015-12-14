@@ -37,6 +37,10 @@ Below is a complete command list:
  Choose recently used file with ido, and jump to it.
  - `ido-goto-recent-dir' :
  Choose recently used dired buffer with ido, and jump to it.
+ - `ido-cdargs'
+ Choose cdargs bookmark and jump to corresponding directory.
+ - `ido-switch-to-cdargs-directory'
+ Change to a cdargs bookmarked directory from ido minibuffer prompt.
 
 * Functions
 
@@ -46,12 +50,14 @@ The following functions are defined:
     Sort ido filelist by modification time instead of alphabetically.
  - `ido-completing-read-multiple' :
     Read multiple items with `ido-completing-read'.
-
+ - `ido-cdargs-directory' :
+    Return the cdargs directory corresponding to bookmark BKMK.
 * Customize
 
  - `ido-favourites-list' :
     List of choice-action pairs for use with the `ido-goto-favourite' command.
-
+ - `ido-cdargs-config' :
+    Location of cdargs config file.
 * Installation
 
 Put ido-jb-misc-extras.el in a directory in your load-path, e.g. ~/.emacs.d/

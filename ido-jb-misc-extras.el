@@ -62,9 +62,9 @@
 ;;  `ido-goto-recent-dir'
 ;;  Choose recently used dired buffer with ido, and jump to it.
 ;;  `ido-cdargs'
-;;  Choose cdargs bookmark and jump to corresponding directory
-;;
-;;; Functions:
+;;  Choose cdargs bookmark and jump to corresponding directory.
+;;  `ido-switch-to-cdargs-directory'
+;;; Change to a cdargs bookmarked directory from ido minibuffer prompt.
 ;;
 ;; The following functions are defined:
 ;;
@@ -221,7 +221,16 @@
     "Location of cdargs config file.
 Each line of the file must be a bookmark name followed by a space,
 and then a filepath, e.g:  emacs ~/.emacs.d"
-    :type 'file)  
+    :type 'file)
+  (defun ido-cdargs-directory (bkmk)
+    "Return the cdargs directory corresponding to bookmark BKMK.
+If there is none then return nil."
+    (with-temp-buffer
+      (insert-file-contents ido-cdargs-config)
+      (if (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*")
+			     nil t)
+	  (match-string 1))))
+  
   (defun ido-cdargs (bkmk &optional findfile)
     "Choose subdir of cdargs bookmark directory.
 BKMK is the name of the cdargs bookmark to use.
@@ -239,18 +248,23 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 		(error "Can't read cdargs config file: %s" ido-cdargs-config))))
 	   current-prefix-arg))
     (if findfile
-	(find-file
-	 (ido-read-file-name
-	  "File: "
-	  (with-temp-buffer
-	    (insert-file-contents ido-cdargs-config)
-	    (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
-	    (match-string 1)) nil t))
-      (ido-file-internal 'dired 'dired
-			 (with-temp-buffer
-			   (insert-file-contents ido-cdargs-config)
-			   (re-search-forward (concat "^" (regexp-opt (list bkmk)) " *\\(\\S-.*\\S-\\)\\s-*"))
-			   (match-string 1)) "Subdirectory: " 'dir nil nil))))
+	(find-file (ido-read-file-name "File: " (ido-cdargs-directory bkmk) nil t))
+      (ido-file-internal 'dired 'dired (ido-cdargs-directory bkmk) "Subdirectory: " 'dir nil nil)))
+
+  ;; The following command can be bound to a key in `ido-file-dir-completion-map'
+  (defun ido-switch-to-cdargs-directory ()
+    "Change to a cdargs bookmarked directory from ido minibuffer prompt.
+Use currently entered text as bookmark name, and switch to corresponding directory if there is one."
+    (interactive)
+    (let* ((dir (ido-cdargs-directory ido-text)))
+      (when dir
+	(ido-set-current-directory dir)
+	(setq ido-exit 'refresh
+	      ido-text-init nil
+	      ido-rotate-temp t
+	      ido-text nil)
+	(exit-minibuffer)))))
+
 
 ;;;###autoload
 (defun ido-completing-read-multiple (prompt choices
