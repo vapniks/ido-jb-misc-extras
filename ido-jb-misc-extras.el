@@ -244,6 +244,7 @@ Location of cdargs config file is stored in `ido-cdargs-config'."
 	      (if (file-readable-p ido-cdargs-config)
 		  (with-temp-buffer
 		    (insert-file-contents ido-cdargs-config)
+		    (setq extract-text-debugging nil)
 		    (extract-text (regex "^\\w+") :REPS 1000 :ERROR 'skip))
 		(error "Can't read cdargs config file: %s" ido-cdargs-config))))
 	   current-prefix-arg))
