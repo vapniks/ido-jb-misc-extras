@@ -112,10 +112,35 @@
 
 ;;;###autoload
 (defun ido-bookmark-jump (bname)
-  "Switch to bookmark BNAME interactively using `ido'."
-  (interactive (list (ido-completing-read
-		      "Bookmark: "
-		      (bookmark-all-names) nil t)))
+  "Switch to bookmark BNAME interactively using `ido'.
+
+If bookmarks+ is installed and a prefix arg is provided then a list
+of tags will be prompted for to filter the bookmarks at the next prompt.
+With a single prefix bookmarks must match all tags, and with a double prefix
+they only need match one of the tags."
+  (interactive (let* ((tags (if current-prefix-arg
+				(bmkp-read-tags-completing)))
+		      (dsjnc (and current-prefix-arg
+				  (= (prefix-numeric-value current-prefix-arg)
+				     16)))
+		      (bmks (if (and tags (featurep 'bookmark+))
+				(bmkp-remove-if-not
+				 (lambda (bmk)
+				   (let ((bmktags (bmkp-get-tags bmk)))
+				     (catch 'bmkp-b-mu-b-t-an
+				       (dolist (tag tags)
+					 (if dsjnc
+					     (if (assoc-default tag (bmkp-get-tags bmk) nil t)
+						 (throw 'bmkp-b-mu-b-t-an t))
+					   (unless (assoc-default tag (bmkp-get-tags bmk) nil t)
+					     (throw 'bmkp-b-mu-b-t-an nil))))
+				       (if dsjnc nil t))))
+				 bookmark-alist))))
+		 (list (ido-completing-read
+			"Bookmark: "
+			(unless (and current-prefix-arg (not bmks))
+			  (bookmark-all-names bmks))
+			nil t))))
   (bookmark-jump bname))
 
 (defvar ido-execute-command-cache nil)
