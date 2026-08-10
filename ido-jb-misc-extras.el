@@ -353,6 +353,41 @@ If a prefix ARG is used then remove matched items from list."
        (if arg (setq ido-matches ido-cur-list))
        (exit-minibuffer))))
 
+;;;###autoload
+(defmacro ido-choose-option (options &optional allowalter allownew inputfn)
+  "Prompt to choose a user option, alter one, or add a new one.
+OPTIONS is an alist whose cars are descriptions, and whose cdrs are values of any type.
+If ALLOWALTER is non-nil then the user may also select \"ALTER\" (or a string provided in the ALLOWALTER arg)
+and then select an item to alter. If ALLOWNEW is non-nil then they can select \"NEW\" (or a string provided
+in the ALLOWNEW arg), and add a new item to OPTIONS. In these cases the code for prompting to alter or add a
+new item should be provided in the INPUTFN arg which should be a function of one argument (either nil in the
+case of adding a new item, or the cdr of the chosen option being altered) which returns the new value.
+In each of these cases the user will also be prompted to save the changes if OPTIONS is a customizable variable.
+The value of the chosen option is returned."
+  `(let* ((saved ,options)
+	  (new (and ,allownew (if (stringp ,allownew) ,allownew "NEW")))
+	  (alter (and ,allowalter (if (stringp ,allowalter) ,allowalter "ALTER")))
+	  (choice (when saved (completing-read
+			       (concat "Choose option"
+				       (when (or new alter) " (")
+				       (when new (concat new " to create new item"))
+				       (when alter (concat (when new ", ") alter " to alter existing item"))
+				       (when (or new alter) ")")
+				       ": ")
+			       (append (mapcar #'car saved) (when alter (list alter))
+				       (when new (list new)))))))
+     (if (not (member choice (list alter new)))
+	 (cdr (assoc choice saved))
+       (let* ((description (if (equal choice new)
+			       (read-string "Description: ")
+			     (completing-read "Choose option to alter: " (mapcar #'car saved))))
+	      (newchoice (funcall ,inputfn (cdr (assoc description saved)))))
+	 (setf (alist-get description ,options nil nil 'string=) newchoice)
+	 (and (custom-variable-p ',options)
+	      (y-or-n-p (format "Save this in `%s'? " (symbol-name ',options)))
+	      (customize-save-variable ',options ,options))
+	 newchoice))))
+
 (provide 'ido-jb-misc-extras)
 
 ;; (magit-push)
