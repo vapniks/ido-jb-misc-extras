@@ -624,9 +624,6 @@ new value, and the user will be asked if they want to save it."
 	      (setq ,currentval (cdr (assoc ,description ,optval))
 		    ,newval (if (functionp ,inputspec)
 				(funcall ,inputspec ,currentval)
-			      ;; TODO use `type-of' &/or `cl-typecase' to reconstruct custom-type of options when its not a symbol 
-			      ;; so that we can use `widget-prompt-value' in those cases too.
-			      ;; This should be a separate function/macro.
 			      (if (or ,inputspec (custom-variable-p ,optsym))
 				  (let ((minibuffer-help-form (describe-variable ,optsym)))
 				    (widget-prompt-value (or ,inputspec
