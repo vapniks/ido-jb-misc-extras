@@ -628,9 +628,10 @@ new value, and the user will be asked if they want to save it."
 			      ;; so that we can use `widget-prompt-value' in those cases too.
 			      ;; This should be a separate function/macro.
 			      (if (or ,inputspec (custom-variable-p ,optsym))
-				  (widget-prompt-value (or ,inputspec
-							   (cadr (memq :value-type (get ,optsym 'custom-type))))
-						       "" ,currentval (string= ,choice ,new))
+				  (let ((minibuffer-help-form (describe-variable ,optsym)))
+				    (widget-prompt-value (or ,inputspec
+							     (cadr (memq :value-type (get ,optsym 'custom-type))))
+							 "" ,currentval (string= ,choice ,new)))
 				(read-from-minibuffer "New value: " (if (equal ,choice ,alter) (format "%s" ,currentval))
 						      nil t))))
 	      (when ,optsym
