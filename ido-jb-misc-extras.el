@@ -12,11 +12,10 @@
 ;; URL: https://github.com/vapniks/ido-jb-misc-extras
 ;; Keywords: unix
 ;; Compatibility: GNU Emacs 24.5.1
-;; Package-Requires: 
+;; Package-Requires: ((ido-choose-function "20151021") (run-assoc "20180725"))
 ;;
-;; Features that might be required by this library:
+;; Features that might be required by this library: cl-lib, wid-edit, cus-edit
 ;;
-;; run-assoc ido-choose-function
 ;;
 
 ;;; This file is NOT part of GNU Emacs
@@ -102,6 +101,10 @@
 ;;; Require
 (eval-when-compile (require 'cl))
 (require 'ido-choose-function)
+(require 'jb-misc-macros)
+(require 'cl-lib)
+(require 'wid-edit)
+(require 'cus-edit) ;; some types (hook, etc.) live here
 
 ;;;###autoload
 (defun ido-run-associated-program nil
@@ -353,40 +356,305 @@ If a prefix ARG is used then remove matched items from list."
        (if arg (setq ido-matches ido-cur-list))
        (exit-minibuffer))))
 
+
+;; Extra prompting functions for customization types
+(defsubst ido--cus-get-tag (w)
+  (and (widgetp w) (consp w) (memq :tag w)
+       (widget-get w :tag)))
+
 ;;;###autoload
-(defmacro ido-choose-option (options &optional allowalter allownew inputfn)
-  "Prompt to choose a user option, alter one, or add a new one.
-OPTIONS is an alist whose cars are descriptions, and whose cdrs are values of any type.
+(defun ido--list-prompt-value (widget prompt value unbound)
+  (let ((args (widget-get widget :args))
+	(listprompt (or (ido--cus-get-tag widget) prompt)))
+    (cl-flet ((promptusr (c j)
+		(widget-prompt-value c (format "%s [%d] %s: "
+					       listprompt j
+					       (or (ido--cus-get-tag c) ""))
+				     (nth (1- j) value) unbound)))
+      (cl-loop for child in args
+               for i from 1
+	       for pos = (and (listp child)
+			      (cl-position :inline child))
+	       if (and pos (nth (1+ pos) child))
+	       append (promptusr child i)
+	       else collect (promptusr child i)))))
+
+;;;###autoload
+(defun ido--vector-prompt-value (widget prompt value unbound)
+  (vconcat (ido--list-prompt-value widget prompt (append value nil) unbound)))
+
+;;;###autoload
+(defun ido--repeat-prompt-value (widget prompt value unbound)
+  (let* ((child (or (car (widget-get widget :args)) 'sexp))
+	 (parentprompt (or (ido--cus-get-tag widget) prompt))
+	 (childprompt (or (ido--cus-get-tag child) parentprompt))
+         (n (read-number (format "No. of elements for %s: " parentprompt)
+                         (and (sequencep value) (length value)))))
+    (cl-loop for i from 1 upto n
+             collect (widget-prompt-value child (format "%s [%d]: " parentprompt i)
+					  (nth (1- i) value) unbound))))
+
+;;;###autoload
+(defun ido--cons-prompt-value (widget prompt value unbound)
+  (let ((args (widget-get widget :args))
+	(parentprompt (or (ido--cus-get-tag widget) prompt)))
+    (cons (let ((w (or (car args) 'sexp)))
+	    (widget-prompt-value w (format "%s: %s " parentprompt
+					   (or (ido--cus-get-tag w) "car"))
+				 (car value) unbound))
+          (let ((w (or (cadr args) 'sexp)))
+	    (widget-prompt-value w (format "%s: %s " parentprompt
+					   (or (ido--cus-get-tag w) "cdr"))
+				 (cdr value) unbound)))))
+
+;;;###autoload
+(defun ido--set-prompt-value (widget prompt _value _unbound)
+  (cl-loop for child in (widget-get widget :args)
+	   for pos = (and (listp child)
+			  (cl-position :inline child))
+	   if (and pos (nth (1+ pos) child))
+	   append (widget-prompt-value child prompt nil t)
+	   else when (y-or-n-p (format "Include %s? "
+				       (or (widget-get child :tag)
+					   (prin1-to-string child))))
+           collect (widget-prompt-value child prompt nil t)))
+
+;;;###autoload
+(defun ido--alist-prompt-value (widget prompt value unbound)
+  (let* ((kt (or (widget-get widget :key-type) 'sexp))
+	 (ktag (ido--cus-get-tag kt))
+         (vt (or (widget-get widget :value-type) 'sexp))
+	 (vtag (ido--cus-get-tag vt))
+         (n (read-number (format "No. of entries for %s: "
+				 (or (ido--cus-get-tag widget) prompt))
+                         (and (listp value) (length value)))))
+    (cl-loop for i from 1 upto n
+             collect (cons (widget-prompt-value kt (format "%s [%d]: " (or ktag "Key") i)
+						(car (nth (1- i) value)) unbound)
+                           (widget-prompt-value vt (format "%s [%d]: " (or vtag "Value") i)
+						(cdr (nth (1- i) value)) unbound)))))
+
+;; Note: don't be tempted to try and account for :inline items in choice widgets
+;;  the final `widget-prompt-value' call will give an error about mismatching types.
+;;;###autoload
+(defun ido--choice-prompt-value (widget prompt value unbound)
+  (let* ((args (widget-get widget :args))
+	 (tag (ido--cus-get-tag widget))
+         (items
+          (let ((seen (make-hash-table :test 'equal)))
+            (mapcar (lambda (child)
+		      (let* ((tag  (ido--cus-get-tag child))
+			     (type (widget-type child))
+			     (base (cond (tag)
+					 ((memq type '(const function-item variable-item))
+					  (format "%s" (widget-get child :value)))
+					 (t (format "%s" type))))
+			     (display base)
+			     (n 2))
+			;; Ensure unique display strings (two consts with no tag)
+			(while (gethash display seen)
+			  (setq display (format "%s [%d]" base n))
+			  (cl-incf n))
+			(puthash display t seen)
+			(cons display child)))
+		    args)))
+         (display-strings (mapcar #'car items))
+         (default (when (and value (not unbound))
+                    (car (cl-find-if (lambda (item) (widget-apply (cdr item) :match value))
+				     items))))
+         (chosen (ido-completing-read (format "%s: " (or tag prompt))
+				      display-strings nil t nil
+				      (widget-get widget :history)
+				      default))
+	 (chosedef (string= chosen default)))
+    ;; Recursively prompt for the chosen alternative's value
+    (widget-prompt-value (cdr (assoc chosen items)) prompt
+			 (when chosedef value)
+			 (or unbound (not chosedef)))))
+
+;;;###autoload
+(defun ido--plist-prompt-value (widget prompt value unbound)
+  (let* ((key-type   (or (widget-get widget :key-type)  'symbol))
+	 (ktag       (ido--cus-get-tag key-type))
+         (value-type (or (widget-get widget :value-type) 'sexp))
+	 (vtag       (ido--cus-get-tag value-type))
+         (cur-len    (and (plistp value) (/ (length value) 2)))
+	 (tag        (ido--cus-get-tag widget))
+         (count      (read-number (format "No. of key-value pairs for %s: "
+					  (or tag prompt))
+				  (or cur-len 0)))
+         result)
+    (dotimes (i count)
+      (let ((k (widget-prompt-value key-type (format "%s [%d]: " (or ktag "Key") (1+ i))
+				    (nth (* i 2) value) unbound))
+            (v (widget-prompt-value value-type (format "%s [%d]: " (or vtag "Value") (1+ i))
+				    (nth (1+ (* i 2)) value) unbound)))
+        (setq result (plist-put result k v))))
+    result))
+
+;; Install previously defined functions into associated customization type symbols
+(dolist (type '((list     . ido--list-prompt-value)
+                (group    . ido--list-prompt-value)
+		(vector   . ido--vector-prompt-value)
+                (repeat   . ido--repeat-prompt-value)
+                (cons     . ido--cons-prompt-value)
+                (set      . ido--set-prompt-value)
+                (alist    . ido--alist-prompt-value)
+		(choice   . ido--choice-prompt-value)
+		(radio    . ido--choice-prompt-value)
+		(plist    . ido--plist-prompt-value)))
+  (let ((def (get (car type) 'widget-type)))
+    (when def
+      (plist-put (cdr def) :prompt-value (cdr type)))))
+;;;###autoload
+(cl-defun ido-custom-prompt-variable (prompt-var prompt-val &optional comment)
+  "Use `ido' to prompt for a user option variable and value and return them as a list.
+PROMPT-VAR is the prompt for the variable, and PROMPT-VAL is the prompt for the value.
+The %s escape in PROMPT-VAL is replaced with the name of the variable.
+
+If the variable has a `variable-interactive' property, that is used as if
+it were the arg to `interactive' (which see) to interactively read the value.
+
+If the variable has a `custom-type' property, it must be a widget and the
+`:prompt-value' property of that widget will be used for reading the value.
+If the variable also has a `custom-get' property, that is used for finding
+the current value of the variable, otherwise `symbol-value' is used.
+
+If optional COMMENT argument is non-nil, also prompt for a comment and return
+it as the third element in the list."
+  (let* ((vars (cl-loop for sym being the symbols
+			if (get sym 'custom-type)
+			collect (symbol-name sym)))
+	 (sap (symbol-name (symbol-at-point)))
+	 (var (intern-soft (ido-completing-read
+			    "User option: " vars
+			    nil t nil nil (when (member sap vars) sap))))
+	 (minibuffer-help-form `(describe-variable ',var))
+	 ;;(other-window-scroll-buffer)
+	 (val
+	  (let ((prop (get var 'variable-interactive))
+		(type (get var 'custom-type))
+		(prompt (format prompt-val var)))
+            (setq type (ensure-list type))
+	    (cond (prop (call-interactively
+			 `(lambda (arg) (interactive ,prop) arg)))
+		  (type (widget-prompt-value
+			 type prompt
+			 (if (boundp var)
+			     (funcall (or (get var 'custom-get) 'symbol-value) var))
+			 (not (boundp var))))
+		  (t (eval-minibuffer prompt))))))
+    (if comment
+ 	(list var val (read-string "Comment: " (get var 'variable-comment)))
+      (list var val))))
+;;;###autoload
+(defun ido-customize-save-variable (variable value &optional comment) 	;ido version of `customize-save-variable'
+  "Like `customize-save-variable', but using `ido-custom-prompt-variable' to prompt the user."
+  (interactive (ido-custom-prompt-variable "Set and save variable: "
+					   "Set and save value for %s as: "
+					   current-prefix-arg))
+  (customize-save-variable variable value comment))
+;;;###autoload
+(defun ido-customize-set-variable (variable value &optional comment) 	;ido version of `customize-save-variable'
+  "Like `customize-set-variable', but using `ido-custom-prompt-variable' to prompt the user."  
+  (interactive (ido-custom-prompt-variable "Set and save variable: "
+					   "Set and save value for %s as: "
+					   current-prefix-arg))
+  (customize-set-variable variable value comment))
+
+;;;###autoload
+(defun ido-choose-from-alist--internal (options alter new delete)
+  (let* ((descriptions (mapcar #'car options))
+	 (choice (when options (ido-completing-read
+				(let ((parts (delq nil
+						   (list (and new (format "%s to create new item" new))
+							 (and alter (format "%s to alter item" alter))
+							 (and delete (format "%s to delete item" delete))))))
+				  (format "Choose option%s: "
+					  (if parts (format " (%s)" (string-join parts ", ")) "")))
+				(append descriptions (when alter (list alter)) (when new (list new))
+					(when delete (list delete)))
+				nil t)))
+	 (alterp (equal choice alter)))
+    (let* ((description (if (member choice (list alter delete))
+			    (ido-completing-read (format "Choose option to %s: "
+							 (if alter "alter" "delete"))
+						 descriptions nil t)))
+	   (newdescription (if (member choice (list alter new))
+			       (cl-loop with olddesc = (if (equal choice alter) description)
+					with disallowed = (remove olddesc descriptions)
+					for d = (read-string "New description (different to others): " olddesc)
+					while (member d disallowed)
+					finally return d))))
+      (list choice description newdescription))))
+
+;;;###autoload
+(defmacro ido-choose-from-alist (options &optional allowalter allownew allowdelete inputspec)
+  "Prompt to choose an option from an alist, delete, alter, or add a new one, set and optionally save it.
+OPTIONS is an alist or a symbol pointing to an alist, whose cars are descriptions, and whose cdrs are values
+of any type. The user chooses one of the descriptions, and the corresponding value is returned.
+
 If ALLOWALTER is non-nil then the user may also select \"ALTER\" (or a string provided in the ALLOWALTER arg)
 and then select an item to alter. If ALLOWNEW is non-nil then they can select \"NEW\" (or a string provided
-in the ALLOWNEW arg), and add a new item to OPTIONS. In these cases the code for prompting to alter or add a
-new item should be provided in the INPUTFN arg which should be a function of one argument (either nil in the
-case of adding a new item, or the cdr of the chosen option being altered) which returns the new value.
-In each of these cases the user will also be prompted to save the changes if OPTIONS is a customizable variable.
-The value of the chosen option is returned."
-  `(let* ((saved ,options)
-	  (new (and ,allownew (if (stringp ,allownew) ,allownew "NEW")))
-	  (alter (and ,allowalter (if (stringp ,allowalter) ,allowalter "ALTER")))
-	  (choice (when saved (completing-read
-			       (concat "Choose option"
-				       (when (or new alter) " (")
-				       (when new (concat new " to create new item"))
-				       (when alter (concat (when new ", ") alter " to alter existing item"))
-				       (when (or new alter) ")")
-				       ": ")
-			       (append (mapcar #'car saved) (when alter (list alter))
-				       (when new (list new)))))))
-     (if (not (member choice (list alter new)))
-	 (cdr (assoc choice saved))
-       (let* ((description (if (equal choice new)
-			       (read-string "Description: ")
-			     (completing-read "Choose option to alter: " (mapcar #'car saved))))
-	      (newchoice (funcall ,inputfn (cdr (assoc description saved)))))
-	 (setf (alist-get description ,options nil nil 'string=) newchoice)
-	 (and (custom-variable-p ',options)
-	      (y-or-n-p (format "Save this in `%s'? " (symbol-name ',options)))
-	      (customize-save-variable ',options ,options))
-	 newchoice))))
+in the ALLOWNEW arg), and add a new item. If ALLOWDELETE is non-nil and OPTIONS is a symbol, then they can
+select \"DELETE\" (or a string provided in the ALLOWDELETE arg), and choose an item to delete.
+When altering or adding a new item, if OPTIONS is a customizable user option then `widget-prompt-value' will be
+used to prompt for a value, unless the INPUTSPEC arg is supplied. INPUTSPEC should always be supplied when OPTIONS
+is not a customizable user option symbol and ALLOWALTER or ALLOWNEW is non-nil.
+INPUTSPEC can either be a customization type/widget specifying the data type of the value to be prompted
+for, e.g. '(list integer string) or a function that prompts the user for a value and returns it.
+In the latter case the function will be passed a single argument; the current value of the option being altered,
+or if a new item is being added then the default value (if there is one) or nil (if not).
+
+When ALTER, NEW or DELETE are chosen, if OPTIONS is the symbol of a customizable variable it will be set to the
+new value, and the user will be asked if they want to save it."
+  (cl-with-gensyms (optsym optval new alter delete choice description newdescription currentval newval)
+    `(with-symbol-and-value-bindings
+      ((,options ,optsym ,optval))
+      (let* ((,new (and ,allownew (if (stringp ,allownew) ,allownew "NEW")))
+	     (,alter (and ,allowalter (if (stringp ,allowalter) ,allowalter "ALTER")))
+	     (,delete (and ,allowdelete (if (stringp ,allowdelete) ,allowdelete "DELETE")))
+	     ,currentval ,newval)
+	(cl-destructuring-bind (,choice ,description ,newdescription)
+	    (ido-choose-from-alist--internal ,optval ,alter ,new ,delete)
+	  (if (not (member ,choice (list ,alter ,new ,delete)))
+	      (cdr (assoc ,choice ,optval))
+	    (if (equal ,choice ,delete)
+		(setq ,optval (assoc-delete-all ,description ,optval))
+	      (setq ,currentval (cdr (assoc ,description ,optval))
+		    ,newval (if (functionp ,inputspec)
+				(funcall ,inputspec ,currentval)
+			      ;; TODO use `type-of' &/or `cl-typecase' to reconstruct custom-type of options when its not a symbol 
+			      ;; so that we can use `widget-prompt-value' in those cases too.
+			      ;; This should be a separate function/macro.
+			      (if (or ,inputspec (custom-variable-p ,optsym))
+				  (widget-prompt-value (or ,inputspec
+							   (cadr (memq :value-type (get ,optsym 'custom-type))))
+						       "" ,currentval (string= ,choice ,new))
+				(read-from-minibuffer "New value: " (if (equal ,choice ,alter) (format "%s" ,currentval))
+						      nil t))))
+	      (when ,optsym
+		(if ,description ;; alter item
+		    (let ((item (assoc ,description ,optval)))
+		      (setcar item ,newdescription)
+		      (setcdr item ,newval))
+		  ;; add new item
+		  (setq ,optval (add-to-list ,optsym (cons ,newdescription ,newval))))))
+	    (when (custom-variable-p ,optsym)
+	      (customize-set-variable ,optsym ,optval)
+	      (if (y-or-n-p (format "Save new value of `%s'? " (symbol-name ,optsym)))
+		  (customize-save-variable ,optsym ,optval)))
+	    ,newval))))))
+
+;;;###autoload
+(defun ido-jb-show-help nil
+  "Show ido keybindings in the *Help* buffer.
+Bind this to a key in `ido-common-completion-map',
+e.g. (define-key ido-common-completion-map (kbd \"C-h\") 'ido-jb-show-help)"
+  (interactive)
+  (let ((win (selected-window)))
+    (describe-keymap 'ido-completion-map)
+    (select-window win)))
 
 (provide 'ido-jb-misc-extras)
 
