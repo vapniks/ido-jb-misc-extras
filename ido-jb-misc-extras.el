@@ -563,7 +563,7 @@ it as the third element in the list."
   (customize-set-variable variable value comment))
 
 ;;;###autoload
-(defun ido-choose-from-alist--internal (options alter new delete)
+(defun ido--choose-from-alist-internal (options alter new delete)
   (let* ((descriptions (mapcar #'car options))
 	 (choice (when options (ido-completing-read
 				(let ((parts (delq nil
@@ -616,7 +616,7 @@ new value, and the user will be asked if they want to save it."
 	     (,delete (and ,allowdelete (if (stringp ,allowdelete) ,allowdelete "DELETE")))
 	     ,currentval ,newval)
 	(cl-destructuring-bind (,choice ,description ,newdescription)
-	    (ido-choose-from-alist--internal ,optval ,alter ,new ,delete)
+	    (ido--choose-from-alist-internal ,optval ,alter ,new ,delete)
 	  (if (not (member ,choice (list ,alter ,new ,delete)))
 	      (cdr (assoc ,choice ,optval))
 	    (if (equal ,choice ,delete)
